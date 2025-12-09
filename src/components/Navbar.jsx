@@ -1,7 +1,14 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react'; // Asegúrate de importar useState
 import { Flame, ShoppingBag, Menu, X, User, LogOut } from 'lucide-react';
 
 export default function Navbar({ view, setView, cart, streak, isMenuOpen, setIsMenuOpen, user, handleLogin, handleLogout }) {
+    const [imgError, setImgError] = useState(false); // Estado para controlar si la imagen falló
+
+    // Reseteamos el error si cambia el usuario
+    useEffect(() => {
+        setImgError(false);
+    }, [user]);
+
     const navItems = [
         { id: 'home', label: 'Hub' },
         { id: 'law', label: 'The Law' },
@@ -47,14 +54,19 @@ export default function Navbar({ view, setView, cart, streak, isMenuOpen, setIsM
                         {cart.length > 0 && <span className="absolute top-2 right-2 w-2.5 h-2.5 bg-brand-primary rounded-full border-2 border-white"></span>}
                     </button>
 
-                    {/* SECCIÓN DE USUARIO / LOGIN */}
+                    {/* SECCIÓN DE USUARIO / LOGIN - ARREGLADO */}
                     {user ? (
                         <div className="flex items-center gap-2 pl-2 border-l border-stone-200">
-                            {/* Foto del usuario si existe, sino icono */}
-                            {user.photoURL ? (
-                                <img src={user.photoURL} alt="User" className="w-8 h-8 rounded-full border border-stone-200" />
+                            {/* Lógica: Si hay URL Y no ha dado error, mostramos foto. Si no, icono. */}
+                            {user.photoURL && !imgError ? (
+                                <img 
+                                    src={user.photoURL} 
+                                    alt="User" 
+                                    className="w-8 h-8 rounded-full border border-stone-200 object-cover" 
+                                    onError={() => setImgError(true)} // Si falla, activa el fallback
+                                />
                             ) : (
-                                <div className="w-8 h-8 bg-stone-200 rounded-full flex items-center justify-center">
+                                <div className="w-8 h-8 bg-stone-200 rounded-full flex items-center justify-center border border-stone-300">
                                     <User className="w-4 h-4 text-stone-500" />
                                 </div>
                             )}
@@ -82,8 +94,8 @@ export default function Navbar({ view, setView, cart, streak, isMenuOpen, setIsM
                 </div>
             </div>
 
-            {/* Mobile Menu */}
-            {isMenuOpen && (
+            {/* Mobile Menu... (se mantiene igual) */}
+             {isMenuOpen && (
                 <div className="md:hidden bg-white border-b border-stone-100 p-6 space-y-2 animate-fade-in absolute w-full shadow-2xl">
                     {navItems.map(item => (
                         <button key={item.id} onClick={() => { setView(item.id); setIsMenuOpen(false); }} className="block w-full text-left p-4 rounded-2xl font-bold text-stone-600 hover:bg-stone-50 hover:text-brand-dark uppercase tracking-widest text-sm">{item.label}</button>

@@ -3,7 +3,7 @@ import { onAuthStateChanged } from "firebase/auth";
 import { doc, getDoc, setDoc } from "firebase/firestore"; 
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
-import Toast from './components/Toast'; // Lo mantenemos para errores o login, pero no para el carrito
+import Toast from './components/Toast';
 import HomeView from './views/HomeView';
 import LawView from './views/LawView';
 import BlogView from './views/BlogView';
@@ -27,14 +27,14 @@ function App() {
 
     // --- EFECTOS ---
 
-    // 1. Sesión y Carga Silenciosa
+    // 1. Sesión y Carga de Datos
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
             if (currentUser) {
                 console.log("🟢 Usuario conectado:", currentUser.email);
                 setUser(currentUser);
                 setIsCartSyncing(true); 
-                await loadCloudCart(currentUser.uid);
+                await loadUserData(currentUser.uid); 
                 setIsCartSyncing(false); 
             } else {
                 console.log("🔴 Usuario desconectado");
@@ -51,30 +51,38 @@ function App() {
         async function loadShopify() {
             const realProducts = await fetchProducts();
             if (realProducts.length > 0) {
+                // Unificamos recursos estáticos + Shopify
                 setProducts([...RESOURCES, ...realProducts]); 
             }
         }
         loadShopify();
     }, []);
 
-    // 3. Guardar en Nube (Silencioso)
+    // 3. Guardar en Nube (Optimizado - PASO 3)
     useEffect(() => {
         if (isCartSyncing) return;
 
         const saveToCloud = async () => {
             localStorage.setItem('lumen_cart', JSON.stringify(cart));
+            localStorage.setItem('lumen_streak', streak.toString());
 
             if (user) { 
                 try {
-                    // Limpieza de iconos antes de subir
+                    // PASO 3: LIMPIEZA DE DATOS (Sanitization)
+                    // Antes de subir, quitamos 'description', 'keywords' y 'icon' para no ensuciar la DB
                     const sanitizedCart = cart.map(item => {
-                        const { icon, ...rest } = item;
-                        return rest;
+                        const { icon, description, keywords, deepDive, scriptures, ...rest } = item;
+                        return rest; // Solo subimos id, name, price, category, color, note, etc.
                     });
 
                     const userDocRef = doc(db, "users", user.uid);
-                    await setDoc(userDocRef, { cart: sanitizedCart }, { merge: true });
-                    console.log("☁️ Sync OK");
+                    await setDoc(userDocRef, { 
+                        cart: sanitizedCart,
+                        streak: streak,
+                        lastLogin: new Date().toISOString()
+                    }, { merge: true });
+                    
+                    console.log("☁️ Sync OK (Optimized)");
                 } catch (e) {
                     console.error("Error guardando:", e);
                 }
@@ -83,35 +91,51 @@ function App() {
         
         const timeoutId = setTimeout(() => saveToCloud(), 500);
         return () => clearTimeout(timeoutId);
-    }, [cart, user, isCartSyncing]); 
+    }, [cart, streak, user, isCartSyncing]); 
 
     // 4. Persistencia Local
     useEffect(() => {
         const savedStreak = localStorage.getItem('lumen_streak');
-        if (savedStreak) setStreak(parseInt(savedStreak));
-    }, []);
+        if (savedStreak && !user) { 
+            setStreak(parseInt(savedStreak));
+        }
+    }, [user]);
     
-    useEffect(() => {
-        localStorage.setItem('lumen_streak', streak.toString());
-    }, [streak]);
-
     useEffect(() => {
         window.scrollTo(0, 0);
     }, [view]);
 
     // --- FUNCIONES ---
 
-    const loadCloudCart = async (uid) => {
+    const loadUserData = async (uid) => {
         try {
             const docRef = doc(db, "users", uid);
             const docSnap = await getDoc(docRef);
             
-            if (docSnap.exists() && docSnap.data().cart) {
-                // Ya NO mostramos el mensaje "Restored". Es silencioso.
-                setCart(docSnap.data().cart);
+            if (docSnap.exists()) {
+                const data = docSnap.data();
+                
+                // PASO 3: HIDRATACIÓN DEL CARRITO (Hydration)
+                // Recuperamos los iconos perdidos comparando IDs con RESOURCES
+                if (data.cart) {
+                    const hydratedCart = data.cart.map(savedItem => {
+                        // Buscamos si existe en nuestros recursos locales para recuperar el Icono
+                        const originalItem = RESOURCES.find(r => r.id === savedItem.id);
+                        
+                        if (originalItem) {
+                            return { ...savedItem, icon: originalItem.icon }; // Restauramos el icono
+                        }
+                        return savedItem;
+                    });
+                    setCart(hydratedCart);
+                }
+                
+                if (data.streak !== undefined) {
+                    setStreak(data.streak);
+                }
             }
         } catch (error) {
-            console.error("Error cargando:", error);
+            console.error("Error cargando datos:", error);
         }
     };
 
@@ -142,7 +166,6 @@ function App() {
     const incrementStreak = () => setStreak(s => s + 1);
 
     const addToCart = (product, note = null) => {
-        // Ya NO mostramos toast aquí. La animación la hará el botón.
         setCart(prevCart => [...prevCart, { ...product, note }]);
     };
     

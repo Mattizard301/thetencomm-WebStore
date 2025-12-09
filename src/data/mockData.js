@@ -1,6 +1,6 @@
 import { 
     BookOpen, Download, Shield, Heart, Cross, 
-    ShoppingBag, Gift, VolumeX 
+    ShoppingBag, Gift, VolumeX, Droplet 
 } from 'lucide-react';
 
 export const BLOG_POSTS = [
@@ -47,13 +47,9 @@ export const QUESTS = [
     { id: 5, title: "The Peacemaker", task: "Pray for someone you currently have conflict with." }
 ];
 
-export const RESOURCES = [
-    { id: 1, name: "Peace Bible", price: 24.99, category: "Study Tools", icon: BookOpen, color: "bg-blue-100", description: "Pocket-sized peace. Highlighted verses for anxiety.", keywords: ["anxiety", "worry", "fear", "peace"] },
-    { id: 2, name: "Heart Reset Guide", price: 0, category: "Free Guides", icon: Download, color: "bg-purple-100", description: "10-day digital detox devotional PDF.", keywords: ["detox", "guide", "free", "reset"] },
-    { id: 3, name: "Evangelist Cap", price: 29.99, category: "Wearable Faith", icon: Shield, color: "bg-orange-100", description: "Vintage wash cap to spark conversations.", keywords: ["hat", "cap", "clothing", "wear"] },
-    { id: 4, name: "Covenant Band", price: 12.99, category: "Wearable Faith", icon: Heart, color: "bg-red-100", description: "Silicone reminder of integrity.", keywords: ["band", "wrist", "reminder"] },
-    { id: 5, name: "Olive Cross", price: 18.99, category: "Study Tools", icon: Cross, color: "bg-green-100", description: "Hand-carved comfort from the Holy Land.", keywords: ["cross", "wood", "holding"] }
-];
+// --- CAMBIO CLAVE AQUÍ ---
+// Dejamos SOLO lo digital o manual. Shopify traerá el resto automáticamente.
+export const RESOURCES = [];
 
 export const COMMANDMENTS = [
     { id: 1, text: "Thou shalt have no other gods before me.", meaning: "Exclusive Devotion", deepDive: "Prioritize the Source...", scriptures: ["Ex 20:3"] },
@@ -68,7 +64,6 @@ export const COMMANDMENTS = [
     { id: 10, text: "Thou shalt not covet.", meaning: "Contentment", deepDive: "The war for the heart...", scriptures: ["Ex 20:17"] },
 ];
 
-// PROMPT PERFECCIONADO PARA EVITAR ALUCINACIONES
 export const SYSTEM_PROMPT = `
 ROLE: You are "The Scholar", a wise, ancient, and deeply spiritual mentor residing in "The Study" of The Ten Commandments website.
 TONE: Warm, solemn, authoritative yet humble. Speak with the cadence of a theologian or a desert father.

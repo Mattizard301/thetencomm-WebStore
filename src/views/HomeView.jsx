@@ -7,20 +7,29 @@ export default function HomeView({ setView, incrementStreak, streak }) {
     const [todaysQuest, setTodaysQuest] = useState(QUESTS[0]);
     const [questCompleted, setQuestCompleted] = useState(false);
     
-    // New Habits State
+    // CORRECCIÓN: Quitamos el objeto 'icon' del estado para no romper localStorage
     const [habits, setHabits] = useState([
-        { id: 'word', label: 'Scripture', icon: BookOpen, completed: false },
-        { id: 'prayer', label: 'Prayer', icon: Heart, completed: false },
-        { id: 'silence', label: 'Silence', icon: VolumeX, completed: false },
-        { id: 'charity', label: 'Charity', icon: Gift, completed: false }
+        { id: 'word', label: 'Scripture', completed: false },
+        { id: 'prayer', label: 'Prayer', completed: false },
+        { id: 'silence', label: 'Silence', completed: false },
+        { id: 'charity', label: 'Charity', completed: false }
     ]);
 
+    // MAPA DE ICONOS: Esto asocia el ID con el Icono de forma segura
+    const getHabitIcon = (id) => {
+        switch(id) {
+            case 'word': return BookOpen;
+            case 'prayer': return Heart;
+            case 'silence': return VolumeX;
+            case 'charity': return Gift;
+            default: return Sparkles;
+        }
+    };
+
     useEffect(() => {
-        // Randomize quest on load if not completed
         const random = QUESTS[Math.floor(Math.random() * QUESTS.length)];
         setTodaysQuest(random);
         
-        // Load habits from local storage
         const savedHabits = localStorage.getItem('lumen_habits_today');
         const lastDate = localStorage.getItem('lumen_habits_date');
         const today = new Date().toDateString();
@@ -37,7 +46,6 @@ export default function HomeView({ setView, incrementStreak, streak }) {
         setQuestCompleted(true);
         incrementStreak();
         
-        // Trigger Confetti - Gold and White for holiness
         confetti({
             particleCount: 200,
             spread: 100,
@@ -137,16 +145,21 @@ export default function HomeView({ setView, incrementStreak, streak }) {
                                 <p className="text-xs font-bold uppercase tracking-widest text-stone-400">Daily Disciplines</p>
                             </div>
                             <div className="space-y-3">
-                                {habits.map(habit => (
-                                    <div key={habit.id} onClick={() => toggleHabit(habit.id)} className={`flex items-center gap-4 p-3 rounded-xl transition-all cursor-pointer border ${habit.completed ? 'bg-amber-50 border-amber-200' : 'bg-transparent border-stone-100 hover:border-stone-300'}`}>
-                                        <div className={`w-10 h-10 rounded-full flex items-center justify-center border transition-all ${habit.completed ? 'bg-amber-500 border-amber-500 text-white' : 'bg-white border-stone-200 text-stone-400'}`}>
-                                            {habit.completed ? <CheckCircle className="w-5 h-5" /> : <habit.icon className="w-4 h-4" />}
+                                {habits.map(habit => {
+                                    // CORRECCIÓN: Obtenemos el icono dinámicamente aquí
+                                    const HabitIcon = getHabitIcon(habit.id);
+                                    
+                                    return (
+                                        <div key={habit.id} onClick={() => toggleHabit(habit.id)} className={`flex items-center gap-4 p-3 rounded-xl transition-all cursor-pointer border ${habit.completed ? 'bg-amber-50 border-amber-200' : 'bg-transparent border-stone-100 hover:border-stone-300'}`}>
+                                            <div className={`w-10 h-10 rounded-full flex items-center justify-center border transition-all ${habit.completed ? 'bg-amber-500 border-amber-500 text-white' : 'bg-white border-stone-200 text-stone-400'}`}>
+                                                {habit.completed ? <CheckCircle className="w-5 h-5" /> : <HabitIcon className="w-4 h-4" />}
+                                            </div>
+                                            <div className="flex-1">
+                                                <span className={`font-serif text-lg ${habit.completed ? 'text-[#2C1810] line-through decoration-amber-300/50' : 'text-stone-600'}`}>{habit.label}</span>
+                                            </div>
                                         </div>
-                                        <div className="flex-1">
-                                            <span className={`font-serif text-lg ${habit.completed ? 'text-[#2C1810] line-through decoration-amber-300/50' : 'text-stone-600'}`}>{habit.label}</span>
-                                        </div>
-                                    </div>
-                                ))}
+                                    );
+                                })}
                             </div>
                             <div className="mt-6 text-center">
                                 <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-[#2C1810] text-amber-100 rounded-full font-serif italic text-sm">

@@ -1,13 +1,52 @@
-import React, { useState } from 'react';
-import { BookOpen, Feather, Sparkles, ArrowRight, X } from 'lucide-react';
-import { BLOG_POSTS, DAILY_INSPIRATION } from '../data/mockData';
+import React, { useState, useEffect } from 'react';
+import { collection, getDocs, query, orderBy } from "firebase/firestore"; // Importamos funciones de DB
+import { db } from '../lib/firebase'; // Tu conexión
+import { BookOpen, Feather, Sparkles, ArrowRight, X, Loader } from 'lucide-react';
+import { BLOG_POSTS, DAILY_INSPIRATION } from '../data/mockData'; // Mantenemos mockData como respaldo
 
 export default function BlogView() {
+    const [posts, setPosts] = useState([]); // Empezamos vacíos esperando a la DB
+    const [isLoading, setIsLoading] = useState(true);
     const [activePost, setActivePost] = useState(null);
     const [activeCategory, setActiveCategory] = useState("All");
     
+    // Carga de datos desde Firebase (CMS)
+    useEffect(() => {
+        const fetchPosts = async () => {
+            try {
+                // Consultamos la colección "posts"
+                const q = query(collection(db, "posts")); // Podrías añadir orderBy('date') aquí si lo tienes configurado
+                const querySnapshot = await getDocs(q);
+                
+                // Convertimos los documentos de Firebase a tu formato
+                const firebasePosts = querySnapshot.docs.map(doc => ({
+                    id: doc.id,
+                    ...doc.data()
+                }));
+
+                if (firebasePosts.length > 0) {
+                    setPosts(firebasePosts); // ¡Usamos datos reales!
+                } else {
+                    console.log("⚠️ No hay posts en DB, usando MockData.");
+                    setPosts(BLOG_POSTS); // Fallback si la DB está vacía
+                }
+            } catch (error) {
+                console.error("Error conectando al CMS:", error);
+                setPosts(BLOG_POSTS); // Fallback en caso de error
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        fetchPosts();
+    }, []);
+
     const categories = ["All", "Discipline", "Theology", "Culture"];
-    const filteredPosts = activeCategory === "All" ? BLOG_POSTS : BLOG_POSTS.filter(p => p.category === activeCategory);
+    
+    // Filtrado (ahora usa el estado 'posts' dinámico)
+    const filteredPosts = activeCategory === "All" 
+        ? posts 
+        : posts.filter(p => p.category === activeCategory);
 
     return (
         <div className="animate-fade-in bg-[#FDFBF7]">
@@ -82,28 +121,38 @@ export default function BlogView() {
                 </div>
 
                 {/* Articles Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    {filteredPosts.map(post => (
-                        <div key={post.id} onClick={() => setActivePost(post)} className="group cursor-pointer">
-                            <div className="bg-white rounded-[1rem] overflow-hidden border border-stone-100 shadow-sm group-hover:shadow-2xl transition-all duration-500 h-full flex flex-col hover:-translate-y-2">
-                                <div className="h-48 bg-stone-100 relative overflow-hidden">
-                                    <div className="absolute inset-0 bg-gradient-to-t from-stone-900/40 to-transparent"></div>
-                                    <span className="absolute bottom-4 left-4 bg-white/90 backdrop-blur px-3 py-1 rounded-sm text-[9px] font-bold text-stone-900 uppercase tracking-widest border border-stone-200">{post.category}</span>
-                                </div>
-                                <div className="p-6 flex-1 flex flex-col">
-                                    <div className="flex items-center gap-3 text-[9px] font-bold text-stone-400 mb-3 uppercase tracking-widest">
-                                        <span>{post.date}</span> • <span>{post.readTime}</span>
+                {isLoading ? (
+                    <div className="flex justify-center items-center py-20">
+                        <Loader className="w-8 h-8 text-amber-600 animate-spin" />
+                    </div>
+                ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        {filteredPosts.map(post => (
+                            <div key={post.id} onClick={() => setActivePost(post)} className="group cursor-pointer">
+                                <div className="bg-white rounded-[1rem] overflow-hidden border border-stone-100 shadow-sm group-hover:shadow-2xl transition-all duration-500 h-full flex flex-col hover:-translate-y-2">
+                                    <div className="h-48 bg-stone-100 relative overflow-hidden">
+                                        <div className="absolute inset-0 bg-gradient-to-t from-stone-900/40 to-transparent"></div>
+                                        {/* Placeholder de imagen o gradiente si no hay imagen real */}
+                                        <div className={`absolute inset-0 ${post.image ? '' : 'bg-stone-200'}`}>
+                                            {post.image && <img src={post.image} alt={post.title} className="w-full h-full object-cover" />}
+                                        </div>
+                                        <span className="absolute bottom-4 left-4 bg-white/90 backdrop-blur px-3 py-1 rounded-sm text-[9px] font-bold text-stone-900 uppercase tracking-widest border border-stone-200">{post.category}</span>
                                     </div>
-                                    <h3 className="font-cinzel text-lg text-stone-900 mb-3 group-hover:text-amber-700 transition-colors leading-tight">{post.title}</h3>
-                                    <p className="text-stone-500 text-xs leading-relaxed mb-6 line-clamp-3 flex-1 font-serif">{post.excerpt}</p>
-                                    <div className="flex items-center text-[10px] font-bold text-[#2C1810] uppercase tracking-widest group-hover:gap-2 transition-all border-t border-stone-100 pt-4">
-                                        Read Article <ArrowRight className="w-3 h-3 ml-1" />
+                                    <div className="p-6 flex-1 flex flex-col">
+                                        <div className="flex items-center gap-3 text-[9px] font-bold text-stone-400 mb-3 uppercase tracking-widest">
+                                            <span>{post.date}</span> • <span>{post.readTime}</span>
+                                        </div>
+                                        <h3 className="font-cinzel text-lg text-stone-900 mb-3 group-hover:text-amber-700 transition-colors leading-tight">{post.title}</h3>
+                                        <p className="text-stone-500 text-xs leading-relaxed mb-6 line-clamp-3 flex-1 font-serif">{post.excerpt}</p>
+                                        <div className="flex items-center text-[10px] font-bold text-[#2C1810] uppercase tracking-widest group-hover:gap-2 transition-all border-t border-stone-100 pt-4">
+                                            Read Article <ArrowRight className="w-3 h-3 ml-1" />
+                                        </div>
                                     </div>
                                 </div>
                             </div>
-                        </div>
-                    ))}
-                </div>
+                        ))}
+                    </div>
+                )}
             </div>
 
             {/* Reading Modal */}
@@ -111,7 +160,15 @@ export default function BlogView() {
                 <div className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-[#2C1810]/80 backdrop-blur-md" onClick={() => setActivePost(null)}>
                     <div className="bg-[#FDFBF7] w-full max-w-3xl max-h-[90vh] overflow-y-auto rounded-sm shadow-2xl relative animate-scale-in border border-stone-200" onClick={e => e.stopPropagation()}>
                         <div className="absolute inset-0 opacity-20 bg-[url('https://www.transparenttextures.com/patterns/noise-lines.png')] pointer-events-none mix-blend-multiply"></div>
-                        <button onClick={() => setActivePost(null)} className="sticky top-8 right-8 float-right p-3 bg-stone-100 rounded-full hover:bg-stone-200 transition-colors z-10"><X className="w-5 h-5 text-stone-600" /></button>
+                        
+                        {/* BOTÓN X ARREGLADO: Usamos 'absolute' en lugar de 'sticky' y 'z-50' */}
+                        <button 
+                            onClick={() => setActivePost(null)} 
+                            className="absolute top-6 right-6 p-2 bg-stone-100 rounded-full hover:bg-stone-200 transition-colors z-50 cursor-pointer shadow-sm hover:scale-105"
+                        >
+                            <X className="w-6 h-6 text-stone-600" />
+                        </button>
+
                         <div className="p-12 md:p-24 relative z-10">
                             <div className="text-center mb-16">
                                 <span className="text-amber-700 font-bold uppercase tracking-[0.2em] text-xs mb-6 block">{activePost.category}</span>
