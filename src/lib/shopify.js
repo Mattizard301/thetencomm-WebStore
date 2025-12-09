@@ -1,5 +1,4 @@
 // --- SHOPIFY CONFIG ---
-// Usamos import.meta.env para leer del archivo .env
 const SHOPIFY_DOMAIN = import.meta.env.VITE_SHOPIFY_DOMAIN; 
 const SHOPIFY_TOKEN = import.meta.env.VITE_SHOPIFY_TOKEN;
 
@@ -16,20 +15,25 @@ export async function shopifyFetch(query) {
 
     try {
         const response = await fetch(URL, options);
-        const data = await response.json();
-        if (!response.ok) throw new Error("Error conectando con Shopify");
-        return data.data;
+        const result = await response.json();
+        
+        // Debug detallado para ver errores de Shopify
+        if (result.errors) {
+            console.error("🚨 Shopify API Errors:", JSON.stringify(result.errors, null, 2));
+        }
+
+        if (!response.ok) throw new Error("Error HTTP conectando con Shopify");
+        return result.data;
     } catch (error) {
         console.error("Error Shopify:", error);
         return null;
     }
 }
 
-// ... (El resto del archivo shopify.js con fetchProducts y createCheckout se mantiene igual)
 export async function fetchProducts() {
     const query = `
     {
-      products(first: 10) {
+      products(first: 20) {
         edges {
           node {
             title
@@ -52,20 +56,20 @@ export async function fetchProducts() {
       }
     }`;
 
-    const response = await shopifyFetch(query);
-    if (!response || !response.products) return [];
+    const data = await shopifyFetch(query);
+    if (!data || !data.products) return [];
 
-    return response.products.edges.map(edge => {
+    return data.products.edges.map(edge => {
         const p = edge.node;
         const variant = p.variants.edges[0]?.node;
         const price = variant?.price.amount || "0";
         const image = p.images.edges[0]?.node.url || "";
         
         return {
-            id: variant?.id,
+            id: variant?.id, // Este ID será tipo "gid://shopify/ProductVariant/..."
             name: p.title,
             price: parseFloat(price),
-            description: p.description || "Producto exclusivo de The Ten.",
+            description: p.description || "",
             category: "Shopify Drop", 
             iconName: "ShoppingBag",
             color: "bg-stone-100", 
@@ -75,29 +79,41 @@ export async function fetchProducts() {
     });
 }
 
+// --- FUNCIÓN DE CHECKOUT ACTUALIZADA (CART API) ---
+// Usamos cartCreate porque checkoutCreate está deprecado
 export async function createCheckout(cartItems) {
     if (cartItems.length === 0) return;
 
-    const lineItems = cartItems
-        .filter(item => item.id && typeof item.id === 'string' && item.id.includes('shopify'))
-        .map(item => {
-            return `{ variantId: "${item.id}", quantity: 1 }`;
-        });
+    // 1. Filtro estricto: Solo dejamos pasar IDs reales de Shopify
+    const validItems = cartItems.filter(item => 
+        item.id && 
+        typeof item.id === 'string' && 
+        item.id.startsWith('gid://')
+    );
 
-    if (lineItems.length === 0) {
-        alert("Tu carrito solo tiene items digitales gratuitos o inválidos.");
+    if (validItems.length === 0) {
+        alert("El carrito no contiene productos sincronizados con Shopify.");
         return;
     }
 
+    console.log("🛒 Iniciando Cart Create con:", validItems);
+
+    // CAMBIO CLAVE: Usamos 'merchandiseId' en lugar de 'variantId' para la Cart API
+    const lineItems = validItems.map(item => {
+        return `{ merchandiseId: "${item.id}", quantity: 1 }`;
+    });
+
+    // CAMBIO CLAVE: Usamos la mutación 'cartCreate'
     const query = `
         mutation {
-            checkoutCreate(input: {
-                lineItems: [${lineItems.join(',')}]
+            cartCreate(input: {
+                lines: [${lineItems.join(',')}]
             }) {
-                checkout {
-                    webUrl
+                cart {
+                    checkoutUrl
                 }
-                checkoutUserErrors {
+                userErrors {
+                    field
                     message
                 }
             }
@@ -106,10 +122,16 @@ export async function createCheckout(cartItems) {
 
     const data = await shopifyFetch(query);
     
-    if (data && data.checkoutCreate && data.checkoutCreate.checkout) {
-        window.location.href = data.checkoutCreate.checkout.webUrl;
+    // Verificamos la respuesta de cartCreate
+    if (data && data.cartCreate && data.cartCreate.cart) {
+        console.log("✅ Checkout URL:", data.cartCreate.cart.checkoutUrl);
+        window.location.href = data.cartCreate.cart.checkoutUrl;
     } else {
-        console.error("Error checkout:", data);
-        alert("Error creando el pedido.");
+        console.error("❌ Error creando carrito:", data);
+        if (data?.cartCreate?.userErrors?.length > 0) {
+            alert("Error: " + data.cartCreate.userErrors[0].message);
+        } else {
+            alert("Error inesperado al conectar con Shopify.");
+        }
     }
 }
